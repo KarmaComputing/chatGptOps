@@ -28,6 +28,6 @@ jobs:
           chmod +x /tmp/auto
       - name: Create Release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token}}
         run: |
           npx /tmp/auto shipit
