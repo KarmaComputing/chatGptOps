@@ -8,6 +8,9 @@ from dotenv import load_dotenv
 
 PYTHON_LOG_LEVEL = os.getenv("PYTHON_LOG_LEVEL", "DEBUG")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", None)
+GITHUB_FINE_GRAINED_ACCESS_TOKEN = os.getenv(
+    "GITHUB_FINE_GRAINED_ACCESS_TOKEN", None
+)  # noqa: E501
 
 load_dotenv()
 
