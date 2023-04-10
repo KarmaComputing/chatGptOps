@@ -1,43 +1,34 @@
 import sys
 import logging
 import os
-import traceback
 from ChatGPTHandler import ChatGPTHandler
 from flask import Flask
 from dotenv import load_dotenv
-
-PYTHON_LOG_LEVEL = os.getenv("PYTHON_LOG_LEVEL", "DEBUG")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", None)
-GITHUB_FINE_GRAINED_ACCESS_TOKEN = os.getenv(
-    "GITHUB_FINE_GRAINED_ACCESS_TOKEN", None
-)  # noqa: E501
+from unhandled_exception_logger import (
+    unhandled_exception_setup,
+    handle_exception,
+)
 
 load_dotenv()
 
-logger = logging.getLogger()
+PYTHON_LOG_LEVEL = os.getenv("PYTHON_LOG_LEVEL", "DEBUG")
 
-
-# Log all uncuaght exceptions
-def handle_exception(exc_type=None, exc_value=None, exc_traceback=None):
-    if issubclass(exc_type, KeyboardInterrupt):
-        sys.__excepthook__(exc_type, exc_value, exc_traceback)
-        return
-    # Walk the trackback until reaching the last traceback frame
-    for tb_frame in traceback.walk_tb(exc_traceback):
-        last_tb_frame = tb_frame
-    # TODO pass also full callstack, since we've cut off the previous tb frames
-    logger.critical(
-        "Uncaught exception", exc_info=(exc_type, exc_value, last_tb_frame)
-    )  # noqa: E501
-
-
-# Direct all uncaught exceptions to handle_exception
-sys.excepthook = handle_exception
 
 # Register chatGPTHandler log handler
 chatGPTHandler = ChatGPTHandler()
-chatGPTHandler.setLevel(PYTHON_LOG_LEVEL)
+chatGPTHandler.setLevel("CRITICAL")
+
+unhandled_exception_setup(handler=chatGPTHandler)
+
+
+logger = logging.getLogger()
+logger.setLevel(PYTHON_LOG_LEVEL)
 logger.addHandler(chatGPTHandler)
+
+
+# # Direct all uncaught exceptions to handle_exception
+sys.excepthook = handle_exception
+
 
 # Minimal python app example with example unhandled exception
 app = Flask(__name__)
@@ -47,7 +38,12 @@ app.logger.disabled = True
 
 @app.errorhandler(Exception)
 def flask_handle_exception(e):
-    handle_exception(sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2])
+    handle_exception(
+        sys.exc_info()[0],
+        sys.exc_info()[1],
+        sys.exc_info()[2],
+        handler=chatGPTHandler,  # noqa: E501
+    )
 
 
 @app.errorhandler(500)
@@ -62,6 +58,8 @@ def index():
 
 @app.route("/error")
 def error():
+    colors = ["Red", "Blue"]
+    print(colors[3])
     names = ["Bob", "Alice"]
     print(names[2])
     return "<p>Hello, World!</p>"

@@ -10,7 +10,7 @@ from pathlib import Path
 
 class ChatGPTHandler(logging.Handler):
     def __init__(self, *args, **kwargs):
-        openai.api_key = os.getenv("OPENAI_API_KEY")
+        self.OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
         self.GITHUB_FINE_GRAINED_ACCESS_TOKEN = os.getenv(
             "GITHUB_FINE_GRAINED_ACCESS_TOKEN"
         )
@@ -27,8 +27,12 @@ class ChatGPTHandler(logging.Handler):
         #   - exception name
         #   - hash of the line of the file with the error
         exception_name = record.exc_info[0].__name__
-        last_tb_frame, last_tb_frame_lineno = record.exc_info[2]
-        last_tb_filepath = inspect.getfile(last_tb_frame)
+        import traceback
+
+        for tb_frame in traceback.walk_tb(record.exc_info[2]):
+            last_tb_frame = tb_frame
+        last_tb_frame_only, last_tb_frame_lineno = last_tb_frame
+        last_tb_filepath = inspect.getfile(last_tb_frame_only)
         last_tb_filename = Path(last_tb_filepath).name
 
         # Read last_tb_frame_lineno to build unique hash of issue and
@@ -93,26 +97,30 @@ class ChatGPTHandler(logging.Handler):
                 code_snippet = "\n".join(code.split("\n")[line_start:line_end])
 
                 print("#" * 80)
-                print(f"Exception in file: {record.pathname}")
+                print(f"Exception in file: {last_tb_filepath}")
                 print(f"Sending code_snippet:\n\n{code_snippet}")
                 print("#" * 80)
-                traceback = f"{str(record.exc_info)}, lineno: {last_tb_frame_lineno}, filename: {last_tb_filepath}"  # noqa: E501
-                prompt = f"##### Explain the bug in the below traceback and code. Where possible, always include the line number(s) of where the error(s) may be. Also, if possible include a possible fix for the code at the end- but always warn the user to check the code and not assume the proposed solution is correct.\n \n## Buggy Python code\n{code_snippet}\n \n## Traceback \n{traceback}"  # noqa: E501
+                str_traceback = f"{str(record.exc_info)}, lineno: {last_tb_frame_lineno}, filename: {last_tb_filepath}"  # noqa: E501
+                prompt = f"##### Explain the bug in the below traceback and code. Where possible, always include the line number(s) of where the error(s) may be. Also, if possible include a possible fix for the code at the end- but always warn the user to check the code and not assume the proposed solution is correct.\n \n## Buggy Python code\n{code_snippet}\n \n## Traceback \n{str_traceback}"  # noqa: E501
                 print("#" * 80, f"Sending the following promt:\n{prompt}")
-                response = openai.Completion.create(
-                    model="text-davinci-003",
-                    prompt=prompt,
-                    temperature=0,
-                    max_tokens=800,
-                    top_p=1.0,
-                    frequency_penalty=0.0,
-                    presence_penalty=0.0,
-                )
-                print("#" * 80)
-                print(f"The response was:\n\n{response}")
-                print("#" * 80)
+                openai.api_key = os.getenv("OPENAI_API_KEY")
+                try:
+                    chatGPT_request = openai.Completion.create(
+                        model="text-davinci-003",
+                        prompt=prompt,
+                        temperature=0,
+                        max_tokens=800,
+                        top_p=1.0,
+                        frequency_penalty=0.0,
+                        presence_penalty=0.0,
+                    )
+                    print("#" * 80)
+                    print(f"The response was:\n\n{chatGPT_request}")
+                    print("#" * 80)
 
-                issue_body = response.choices[0].text
+                    issue_body = chatGPT_request.choices[0].text
+                except Exception as e:
+                    print(f"error getting response from ChatGPT: {e}")
 
             # Create Github issue
             url = f"https://api.github.com/repos/{self.GITHUB_ORG_NAME_OR_USERNAME}/{self.GIT_REPO_NAME}/issues"  # noqa: E501
