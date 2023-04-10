@@ -1,4 +1,2 @@
-flask
 openai
-python-dotenv
 unhandled-exception-logger

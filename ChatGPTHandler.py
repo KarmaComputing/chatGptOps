@@ -20,6 +20,16 @@ class ChatGPTHandler(logging.Handler):
         self.GIT_REPO_NAME = os.getenv("GIT_REPO_NAME")
         super().__init__(*args, **kwargs)
 
+        if (
+            self.OPENAI_API_KEY is None
+            or self.GITHUB_FINE_GRAINED_ACCESS_TOKEN is None
+            or self.GITHUB_ORG_NAME_OR_USERNAME is None
+            or self.GIT_REPO_NAME is None
+        ):
+            raise Exception(
+                "\nChatGPTHandler is missing one or more config settings.\nYou must set OPENAI_API_KEY, GITHUB_FINE_GRAINED_ACCESS_TOKEN, GITHUB_ORG_NAME_OR_USERNAME, and GIT_REPO_NAME as environment settings."
+            )
+
     def emit(self, record):
         # Create unique hash for issue made of:
         #   - file name
